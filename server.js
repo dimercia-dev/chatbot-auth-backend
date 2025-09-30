@@ -5,12 +5,15 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const { Pool } = require('pg');
 const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+// Initialiser Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Middleware
 app.use(cors());
@@ -32,22 +35,15 @@ pool.connect(err => {
   }
 });
 
-// Config Nodemailer
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+// Vérifier la configuration Resend au démarrage
+(async () => {
+  try {
+    await resend.apiKeys.list();
+    console.log('✅ Resend configuré correctement');
+  } catch (error) {
+    console.error('⚠️ Erreur config Resend:', error.message);
   }
-});
-
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('Erreur config email:', error);
-  } else {
-    console.log('✅ Email configuré correctement');
-  }
-});
+})();
 
 // Route de santé
 app.get('/health', (req, res) => {
@@ -55,7 +51,7 @@ app.get('/health', (req, res) => {
     status: 'OK',
     time: new Date(),
     database: 'Connected',
-    email: 'Ready'
+    email: 'Resend Ready'
   });
 });
 
@@ -66,7 +62,6 @@ app.post('/api/auth/signup', async (req, res) => {
 
     console.log('Tentative inscription:', { username, email, deviceId });
 
-    // Validations
     if (!username || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -81,7 +76,6 @@ app.post('/api/auth/signup', async (req, res) => {
       });
     }
 
-    // Vérifier si l'utilisateur existe
     const existing = await pool.query(
       'SELECT id FROM users WHERE email = $1',
       [email.toLowerCase()]
@@ -94,11 +88,9 @@ app.post('/api/auth/signup', async (req, res) => {
       });
     }
 
-    // Hash du mot de passe
     const hashedPassword = await bcrypt.hash(password, 12);
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
-    // Insérer l'utilisateur
     const result = await pool.query(`
       INSERT INTO users (nom, email, password_hash, verification_token, device_id, created_at)
       VALUES ($1, $2, $3, $4, $5, NOW())
@@ -108,35 +100,45 @@ app.post('/api/auth/signup', async (req, res) => {
     const user = result.rows[0];
     console.log('Utilisateur créé:', user);
 
-    // Envoyer l'email de vérification
+    // Envoyer l'email avec Resend
     const verificationUrl = `${process.env.FRONTEND_URL}/verify?token=${verificationToken}`;
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Vérifiez votre compte - Assistant IA',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0;">Bienvenue ${username} !</h1>
-          </div>
-          <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px;">
-            <p style="font-size: 16px;">Merci de vous être inscrit sur <strong>Assistant IA Pro</strong>.</p>
-            <p style="font-size: 16px;">Pour activer votre compte, cliquez sur le bouton ci-dessous :</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verificationUrl}" 
-                 style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; display: inline-block; font-weight: bold;">
-                Vérifier mon compte
-              </a>
+    try {
+      const { data, error } = await resend.emails.send({
+        from: 'Assistant IA <onboarding@resend.dev>',
+        to: [email],
+        subject: 'Vérifiez votre compte - Assistant IA',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0;">Bienvenue ${username} !</h1>
             </div>
-            <p style="color: #666; font-size: 14px;">Ce lien expire dans 24 heures.</p>
-            <p style="color: #666; font-size: 14px;">Si vous n'avez pas créé ce compte, ignorez ce message.</p>
+            <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px;">
+              <p style="font-size: 16px;">Merci de vous être inscrit sur <strong>Assistant IA Pro</strong>.</p>
+              <p style="font-size: 16px;">Pour activer votre compte, cliquez sur le bouton ci-dessous :</p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${verificationUrl}" 
+                   style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; display: inline-block; font-weight: bold;">
+                  Vérifier mon compte
+                </a>
+              </div>
+              <p style="color: #666; font-size: 14px;">Ce lien expire dans 24 heures.</p>
+              <p style="color: #666; font-size: 14px;">Si vous n'avez pas créé ce compte, ignorez ce message.</p>
+            </div>
           </div>
-        </div>
-      `
-    });
+        `
+      });
 
-    console.log('Email envoyé à:', email);
+      if (error) {
+        console.error('Erreur Resend:', error);
+        throw new Error('Erreur envoi email');
+      }
+
+      console.log('Email envoyé à:', email, 'ID:', data.id);
+    } catch (emailError) {
+      console.error('Erreur envoi email:', emailError);
+      // On continue quand même, l'utilisateur est créé
+    }
 
     res.status(201).json({
       success: true,
@@ -169,7 +171,6 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    // Récupérer l'utilisateur
     const result = await pool.query(`
       SELECT id, nom, email, password_hash, email_verified, failed_login_attempts, locked_until
       FROM users WHERE email = $1
@@ -184,7 +185,6 @@ app.post('/api/auth/login', async (req, res) => {
 
     const user = result.rows[0];
 
-    // Vérifier si le compte est verrouillé
     if (user.locked_until && new Date() < new Date(user.locked_until)) {
       return res.status(423).json({
         success: false,
@@ -192,7 +192,6 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    // Vérifier si l'email est vérifié
     if (!user.email_verified) {
       return res.status(403).json({
         success: false,
@@ -203,13 +202,11 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    // Vérifier le mot de passe
     const validPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!validPassword) {
       const failedAttempts = (user.failed_login_attempts || 0) + 1;
-      const lockUntil = failedAttempts >= 5 ?
-        new Date(Date.now() + 15 * 60 * 1000) : null;
+      const lockUntil = failedAttempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
 
       await pool.query(`
         UPDATE users 
@@ -223,7 +220,6 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    // Réinitialiser les tentatives échouées
     await pool.query(`
       UPDATE users 
       SET failed_login_attempts = 0, locked_until = NULL, 
@@ -231,14 +227,12 @@ app.post('/api/auth/login', async (req, res) => {
       WHERE id = $2
     `, [deviceId, user.id]);
 
-    // Créer le token JWT
     const sessionToken = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // Sauvegarder la session
     try {
       await pool.query(`
         INSERT INTO user_sessions (user_id, session_token, device_info, expires_at)
@@ -341,30 +335,9 @@ app.post('/api/auth/logout', async (req, res) => {
   }
 });
 
-// Endpoint test d'envoi d'email
-app.post('/send-email', async (req, res) => {
-  const { to, subject, text } = req.body;
-  if (!to || !subject || !text) {
-    return res.status(400).json({ error: 'Champs manquants: to, subject, text' });
-  }
-
-  try {
-    await transporter.sendMail({
-      from: `"Mon App" <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      text
-    });
-    res.json({ success: true, message: 'Email envoyé !' });
-  } catch (err) {
-    console.error('Erreur envoi mail', err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 // Lancement du serveur
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Serveur d'authentification démarré sur le port ${PORT}`);
-  console.log(`📧 Email configuré avec: ${process.env.EMAIL_USER}`);
+  console.log(`📧 Email configuré avec Resend`);
   console.log(`🗄️  Base de données: Neon PostgreSQL`);
 });
