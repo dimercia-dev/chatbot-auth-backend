@@ -101,7 +101,7 @@ app.post('/api/auth/signup', async (req, res) => {
     console.log('Utilisateur créé:', user);
 
     // Envoyer l'email avec Resend
-    const verificationUrl = `${process.env.FRONTEND_URL}/verify?token=${verificationToken}`;
+    const verificationUrl = `${process.env.FRONTEND_URL}/verify/${verificationToken}`;
 
     try {
       const { data, error } = await resend.emails.send({
