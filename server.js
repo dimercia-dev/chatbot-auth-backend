@@ -101,13 +101,12 @@ app.post('/api/auth/signup', async (req, res) => {
     console.log('Utilisateur créé:', user);
 
     // Envoyer l'email avec Resend
-    const verificationUrl = `${process.env.BACKEND_URL}/api/auth/verify/${verificationToken}`;
-
+    const verificationUrl = `https://chatbot-auth-frontend.onrender.com/verify/${verificationToken}`;
     try {
       const { data, error } = await resend.emails.send({
-        from: 'Assistant IA <onboarding@resend.dev>',
+        from: 'Winna Chat IA <onboarding@resend.dev>',
         to: [email],
-        subject: 'Vérifiez votre compte - Assistant IA',
+        subject: 'Vérifiez votre compte - Winna Chat IA',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
