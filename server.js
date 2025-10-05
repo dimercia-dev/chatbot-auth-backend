@@ -101,7 +101,7 @@ app.post('/api/auth/signup', async (req, res) => {
     console.log('Utilisateur créé:', user);
 
     // Envoyer l'email avec Resend
-    const verificationUrl = `https://dimercia-dev/chatbot-auth-frontend/verify/${verificationToken}`;
+    const verificationUrl = `https://chatbot-mobile-vite.onrender.com/verify/${verificationToken}`;
     try {
       const { data, error } = await resend.emails.send({
         from: 'Winna Chat IA <onboarding@resend.dev>',
