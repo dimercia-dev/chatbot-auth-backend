@@ -103,30 +103,93 @@ app.post('/api/auth/signup', async (req, res) => {
     // Envoyer l'email avec Resend
     const verificationUrl = `https://chatbot-mobile-vite.onrender.com/verify/${verificationToken}`;
     try {
-      const { data, error } = await resend.emails.send({
-        from: 'Winna Chat IA <onboarding@resend.dev>',
-        to: [email],
-        subject: 'Vérifiez votre compte - Winna Chat IA',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-              <h1 style="color: white; margin: 0;">Bienvenue ${username} !</h1>
-            </div>
-            <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px;">
-              <p style="font-size: 16px;">Merci de vous être inscrit sur <strong>Assistant IA Pro</strong>.</p>
-              <p style="font-size: 16px;">Pour activer votre compte, cliquez sur le bouton ci-dessous :</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${verificationUrl}" 
-                   style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; display: inline-block; font-weight: bold;">
-                  Vérifier mon compte
-                </a>
-              </div>
-              <p style="color: #666; font-size: 14px;">Ce lien expire dans 24 heures.</p>
-              <p style="color: #666; font-size: 14px;">Si vous n'avez pas créé ce compte, ignorez ce message.</p>
-            </div>
-          </div>
-        `
-      });
+        const { data, error } = await resend.emails.send({
+          from: 'Winna Chat IA <noreply@dimerciadev.com>',
+          to: [email],
+          subject: 'Vérifiez votre compte Winna Chat IA',
+          html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f4;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+                <tr>
+                  <td align="center">
+                    <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                      
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+                          <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">Bienvenue ${username} !</h1>
+                        </td>
+                      </tr>
+                      
+                      <!-- Content -->
+                      <tr>
+                        <td style="padding: 40px 30px;">
+                          <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                            Merci de vous être inscrit sur <strong>Winna Chat IA</strong>.
+                          </p>
+                          
+                          <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                            Pour activer votre compte et commencer à utiliser notre assistant IA, veuillez cliquer sur le bouton ci-dessous :
+                          </p>
+                          
+                          <!-- Button -->
+                          <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td align="center" style="padding: 20px 0;">
+                                <a href="${verificationUrl}" 
+                                  style="display: inline-block; background-color: #667eea; color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                                  Vérifier mon compte
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 20px 0 0 0;">
+                            Ce lien de vérification expirera dans 24 heures.
+                          </p>
+                          
+                          <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 10px 0 0 0;">
+                            Si vous n'avez pas créé de compte, vous pouvez ignorer cet email en toute sécurité.
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #e9ecef;">
+                          <p style="color: #6c757d; font-size: 13px; margin: 0; line-height: 1.5;">
+                            © 2024 Winna Chat IA. Tous droits réservés.<br>
+                            Cet email a été envoyé à ${email}
+                          </p>
+                        </td>
+                      </tr>
+                      
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+          `,
+          // Ajoutez une version texte (important pour éviter le spam)
+          text: `Bienvenue ${username} !
+
+        Merci de vous être inscrit sur Winna Chat IA.
+
+        Pour activer votre compte, cliquez sur ce lien : ${verificationUrl}
+
+        Ce lien expirera dans 24 heures.
+
+        Si vous n'avez pas créé de compte, ignorez cet email.
+
+        © 2024 Winna Chat IA`
+        });
 
       if (error) {
         console.error('Erreur Resend:', error);
